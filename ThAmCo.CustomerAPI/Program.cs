@@ -1,6 +1,18 @@
+using ThAmCo.CustomerAPI.Services.Product;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+var environment = builder.Configuration.GetSection("BuildConfig");
+
+if (environment.Value != null && environment.Value.Equals("Develop"))
+{
+    builder.Services.AddTransient<IProductService, ProductServiceFake>();
+}
+else
+{
+    builder.Services.AddHttpClient<IProductService, ProductService>();
+}
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
