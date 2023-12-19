@@ -1,5 +1,7 @@
 using ThAmCo.CustomerAPI.Services.Product;
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Polly;
+using Polly.Extensions.Http;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
@@ -15,7 +17,9 @@ if (environment.Value != null && environment.Value.Equals("Develop"))
 }
 else
 {
-    builder.Services.AddHttpClient<IProductService, ProductService>();
+    builder.Services.AddHttpClient<IProductService, ProductService>()
+        .AddPolicyHandler(GetRetryPolicy())
+        .AddPolicyHandler(GetCircuitBreakerPolicy());
 }
 
 builder.Services.AddControllers();
@@ -50,3 +54,20 @@ app.UseAuthorization();
 app.MapControllers().RequireAuthorization();
 
 app.Run();
+
+
+IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.NotFound)
+        .WaitAndRetryAsync(5, retryAttempt =>
+            TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+}
+
+IAsyncPolicy<HttpResponseMessage> GetCircuitBreakerPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30));
+}
